@@ -1,29 +1,37 @@
-import 'package:chatapp/services/auth_service.dart';
+import 'package:chatapp/services/chat_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:pull_to_refresh/pull_to_refresh.dart';
+//import 'package:pull_to_refresh/pull_to_refresh.dart';
+
 import 'package:chatapp/models/usuario.dart';
 
+import 'package:chatapp/services/auth_service.dart';
+import 'package:chatapp/services/socket_service.dart';
+import 'package:chatapp/services/usuarios_service.dart';
+
+// ignore: use_key_in_widget_constructors
 class UsuariosPage extends StatefulWidget {
   @override
   State<UsuariosPage> createState() => _UsuariosPageState();
 }
 
 class _UsuariosPageState extends State<UsuariosPage> {
-  RefreshController _refreshController =
-      RefreshController(initialRefresh: false);
+  final usuariosService = UsuariosService();
+  // RefreshController _refreshController =
+  //   RefreshController(initialRefresh: false);
 
-  final usuarios = [
-    Usuario(online: true, email: 'test1@test.com', nombre: 'Felipe', uid: '1'),
-    Usuario(online: true, email: 'test2@test.com', nombre: 'Pia', uid: '2'),
-    Usuario(online: false, email: 'test3@test.com', nombre: 'Nacho', uid: '3'),
-    Usuario(
-        online: true, email: 'test14@test.com', nombre: 'Francesca', uid: '4'),
-  ];
+  List<Usuario> usuarios = [];
+  @override
+  void initState() {
+    // TODO: implement initState
+    _cargarUsuarios();
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
+    final socketService = Provider.of<SocketService>(context);
     final usuario = authService.usuario;
     return Scaffold(
       appBar: AppBar(
@@ -35,6 +43,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
         backgroundColor: Colors.white,
         leading: IconButton(
           onPressed: () {
+            socketService.desconectar();
             Navigator.pushReplacementNamed(context, 'login');
             AuthService.borrarToken();
           },
@@ -46,26 +55,22 @@ class _UsuariosPageState extends State<UsuariosPage> {
         actions: [
           Container(
             margin: EdgeInsets.only(right: 10),
-            /*  child: Icon(
-              Icons.check_circle,
-              color: Colors.blue[400],
-            ), */
-            child: Icon(
-              Icons.offline_bolt,
-              color: Colors.red[400],
-            ),
+            child: (socketService.statusServidor == StatusServidor.online)
+                ? Icon(
+                    Icons.check_circle,
+                    color: Colors.blue[400],
+                  )
+                : Icon(
+                    Icons.offline_bolt,
+                    color: Colors.red[400],
+                  ),
           )
         ],
       ),
-      body: SmartRefresher(
-        controller: _refreshController,
-        enablePullDown: true,
-        onLoading: _cargarUsuarios,
-        header: WaterDropHeader(
-          complete: Icon(Icons.check, color: Colors.blue[100]),
-          waterDropColor: Colors.blue,
-        ),
-        child: _listVewUsuarios(),
+      body: _listVewUsuarios(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _cargarUsuarios,
+        child: Icon(Icons.refresh_outlined),
       ),
     );
   }
@@ -94,10 +99,18 @@ class _UsuariosPageState extends State<UsuariosPage> {
             color: usuario.online ? Colors.green[300] : Colors.red,
             borderRadius: BorderRadius.circular(100)),
       ),
+      onTap: () {
+        final chatService = Provider.of<ChatService>(context, listen: false);
+        chatService.usuarioPara = usuario;
+        Navigator.pushNamed(context, 'chat');
+      },
     );
   }
 
-  _cargarUsuarios() async {
-    print('Pull refresh');
+  void _cargarUsuarios() async {
+    usuarios = await usuariosService.obtenerUsuarios();
+    setState(() {});
+    //_refreshController.refreshCompleted();
+    //_refreshController.loadComplete();
   }
 }
